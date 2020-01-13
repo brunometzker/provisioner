@@ -1,9 +1,5 @@
 #!/bin/bash
 
-repository_root=$(cd $1 ; pwd)
-latest_commit_comment=$(git log -n 1 --format="%B" | head -n 1)
-latest_commit_short_sha=$(git log -n 1 --format="%h")
-
 function tag_commit() {
     local previous_tag=$1
     local tag=$2
@@ -18,50 +14,30 @@ function tag_commit() {
         exit 1
     else
         echo "Version is now: $tag, previous was: $previous_tag"
+        #git push origin $tag
     fi
 }
 
-function build_image() {
-    local name=$1
-    local tag=$2
-    local path_to_dockerfile=$3
-    local tag_as_latest=$4
-
-    if [ $tag_as_latest ]
-    then
-        docker build -t $name:$tag -t $name:latest $path_to_dockerfile
-        if [ $? -gt 0 ]
-        then
-            echo "Could not build image named: $name@$tag. Exiting ..."
-            exit 1
-        else
-            echo "Built $name@$tag"
-        fi
-    else
-        docker build -t $name:$tag $path_to_dockerfile
-        if [ $? -gt 0 ]
-        then
-            echo "Could not build image named: $name@$tag. Exiting ..."
-            exit 1
-        else
-            echo "Built $name@$tag"
-        fi
-    fi
-}
+repository_root=$(cd $1 ; pwd)
+latest_commit_comment=$(git log -n 1 --format="%B" | head -n 1)
+latest_commit_short_sha=$(git log -n 1 --format="%h")
 
 cd $repository_root
-
-tag_from_latest_commit=$(git describe --exact-match $latest_commit_short_sha)
+is_head_revision_tagged=$(git describe --exact-match $latest_commit_short_sha 2>&1 > /dev/null)
 
 if [ $? -eq 0 ]
 then
-    echo "Commit: $latest_commit_short_sha is already tagged. Building image ..."
-    build_image $(basename `pwd` | tr '[:upper:]' '[:lower:]') $tag_from_latest_commit . true
+    echo "Commit: $latest_commit_short_sha is already tagged. Exiting ..."
 else
-
     if [[ $latest_commit_comment =~ \[(.*)\] ]]
     then
-        latest_tag=$(git describe --abbrev=0:-0.0.0)
+        latest_tag=$(git describe --abbrev=0 2>&1 > /dev/null)
+
+        if [ $? -gt 0 ]
+        then
+            latest_tag="0.0.0"
+        fi
+
         if [[ $latest_tag =~ ([0-9]*)\.([0-9]*)\.([0-9]*) ]]
         then
             if [[ "${BASH_REMATCH[1]}" == "PATCH" ]]
@@ -73,7 +49,6 @@ else
                 new_tag=$major.$minor.$incremented_patch
                 
                 tag_commit $latest_tag $new_tag $latest_commit_comment $latest_commit_short_sha
-                build_image $(basename `pwd` | tr '[:upper:]' '[:lower:]') $new_tag . true
             elif [[ "${BASH_REMATCH[1]}" == "MINOR" ]]
             then
             if [[ $latest_tag =~ ([0-9]*)\.([0-9]*)\.([0-9]*) ]]
@@ -85,7 +60,6 @@ else
                     new_tag=$major.$incremented_minor.$patch
                     
                     tag_commit $latest_tag $new_tag $latest_commit_comment $latest_commit_short_sha
-                    build_image $(basename `pwd` | tr '[:upper:]' '[:lower:]') $new_tag . true
                 fi
             else
                 if [[ $latest_tag =~ ([0-9]*)\.([0-9]*)\.([0-9]*) ]]
@@ -97,7 +71,6 @@ else
                     new_tag=$incremented_major.$minor.$patch
 
                     tag_commit $latest_tag $new_tag $latest_commit_comment $latest_commit_short_sha
-                    build_image $(basename `pwd` | tr '[:upper:]' '[:lower:]') $new_tag . true
                 fi
             fi
         fi
