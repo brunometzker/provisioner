@@ -1,6 +1,6 @@
 #!/bin/bash
 
-path_to_dockerfile=$(cd $1 ; pwd)
+path_to_dockerfile=$1
 image_name=$2
 tag=$3
 tag_as_latest=$4

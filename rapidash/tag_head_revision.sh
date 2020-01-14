@@ -18,7 +18,7 @@ function tag_commit() {
     fi
 }
 
-repository_root=$(cd $1 ; pwd)
+repository_root=$1
 latest_commit_comment=$(git log -n 1 --format="%B" | head -n 1)
 latest_commit_short_sha=$(git log -n 1 --format="%h")
 
